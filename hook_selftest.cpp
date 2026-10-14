@@ -1,0 +1,9 @@
+#include <windows.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <vector>
+#include "jxl_decode.h"
+typedef int (__stdcall *InfoFn)(HLOCAL,int,SIZE_T,uint32_t*);
+typedef int (__stdcall *ImageFn)(HLOCAL,int,SIZE_T,HLOCAL*,HLOCAL*);
+static bool Read(const wchar_t* p,std::vector<uint8_t>* o){HANDLE f=CreateFileW(p,GENERIC_READ,FILE_SHARE_READ,nullptr,OPEN_EXISTING,0,nullptr);if(f==INVALID_HANDLE_VALUE)return false;LARGE_INTEGER n;bool ok=GetFileSizeEx(f,&n)&&n.QuadPart>0&&n.QuadPart<=512LL*1024*1024;if(ok){o->resize((size_t)n.QuadPart);DWORD g=0;ok=ReadFile(f,o->data(),(DWORD)o->size(),&g,nullptr)&&g==o->size();}CloseHandle(f);return ok;}
+int wmain(int argc,wchar_t** argv){if(argc!=3){fwprintf(stderr,L"usage: hook_selftest.exe LoaderJxl.dll input.jxl\n");return 2;}std::vector<uint8_t> in;if(!Read(argv[2],&in)||!IsJxlPayload(in.data(),in.size()))return 3;JxlDecodedImage ref;if(!DecodeJxlToBgra(in.data(),in.size(),&ref))return 4;HMODULE dll=LoadLibraryW(argv[1]);if(!dll)return 5;InfoFn info=(InfoFn)GetProcAddress(dll,"GetImageInfo");ImageFn image=(ImageFn)GetProcAddress(dll,"GetImage");if(!info||!image)return 6;HLOCAL src=LocalAlloc(2,in.size());void* p=LocalLock(src);memcpy(p,in.data(),in.size());LocalUnlock(src);uint32_t meta[3]={};if(info(src,1,in.size(),meta)||meta[0]!=ref.width||meta[1]!=ref.height||meta[2]!=4)return 7;HLOCAL hi=0,hp=0;if(image(src,1,in.size(),&hi,&hp)||!hi||!hp)return 8;uint32_t* m=(uint32_t*)LocalLock(hi);uint8_t* pixels=(uint8_t*)LocalLock(hp);bool ok=m&&pixels&&m[0]==ref.width&&m[1]==ref.height&&m[2]==4;size_t stride=(size_t)ref.width*4;for(uint32_t y=0;ok&&y<ref.height;++y)ok=!memcmp(pixels+(size_t)(ref.height-1-y)*stride,ref.bgra.data()+(size_t)y*stride,stride);if(m)LocalUnlock(hi);if(pixels)LocalUnlock(hp);LocalFree(hi);LocalFree(hp);LocalFree(src);FreeLibrary(dll);if(!ok)return 9;printf("PASS dimensions=%ux%u bottom-up-BGRA=exact\n",ref.width,ref.height);return 0;}

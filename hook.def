@@ -1,0 +1,5 @@
+LIBRARY LoaderJxl
+EXPORTS
+  GetExec
+  GetImageInfo
+  GetImage

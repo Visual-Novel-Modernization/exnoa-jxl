@@ -10,7 +10,7 @@ foreach ($required in @($gxx, (Join-Path $inc 'jxl/decode.h'), (Join-Path $lib '
   if (-not (Test-Path -LiteralPath $required)) { throw "Missing prerequisite: $required" }
 }
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
-# Statically link the image codecs and pthread runtime.
+# Link codecs and pthread runtime statically.
 $common = @('-m32', '-O2', '-std=gnu++17', '-DJXL_STATIC_DEFINE', '-I', $inc, '-L', $lib,
   "-ffile-prefix-map=$PSScriptRoot=.", "-ffile-prefix-map=$ToolchainRoot=toolchain",
   '-Wl,-Bstatic', '-ljxl', '-ljxl_cms', '-lbrotlidec', '-lbrotlicommon', '-lhwy', '-Wl,--whole-archive', (Join-Path $lib 'libwinpthread.a'), '-Wl,--no-whole-archive', '-lstdc++', '-lgcc',

@@ -5,8 +5,7 @@
 #include <vector>
 #include "jxl_decode.h"
 
-// Verified PNG-loader ABI and RVAs. Resolve each address from the loaded
-// module base so Windows ASLR remains enabled.
+// PNG-loader ABI. Resolve verified RVAs from the loaded module base.
 typedef int (__stdcall *ImageInfoFn)(HLOCAL, int, SIZE_T, uint32_t*);
 typedef int (__stdcall *ImageFn)(HLOCAL, int, SIZE_T, HLOCAL*, HLOCAL*);
 static const uintptr_t kInfoRva = 0x1020;
@@ -60,8 +59,7 @@ static bool IsJxlInput(HLOCAL h,int mode,SIZE_T size,std::vector<uint8_t>* input
   return ReadInput(h,mode,size,input) && IsJxlPayload(input->data(),input->size());
 }
 
-// Claim .png because converted archive entries retain their original names.
-// Non-JXL PNG payloads are forwarded to the preserved original loader.
+// Register for .png and forward non-JXL payloads to the original loader.
 extern "C" __declspec(dllexport) const char* __stdcall GetExec(){return ".png";}
 extern "C" __declspec(dllexport) int __stdcall GetImageInfo(HLOCAL h,int mode,SIZE_T size,uint32_t* info){
   std::vector<uint8_t> input; if(!IsJxlInput(h,mode,size,&input)){ImageInfoFn f=OriginalInfo();return f?f(h,mode,size,info):3;}
